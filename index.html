@@ -1,9 +1,267 @@
-// CONFIG EDITABLE (en index.html)
-const WHATSAPP_NUMERO = "54911XXXXXXXX";   // tu nº sin + (ej. 54911...)
-const MENU_JSON_URL   = "./menu.json";
-const STORE_LAT = -34.6;    // Latitud exacta de Av. Vergara 3202 (ver paso 2)
-const STORE_LNG = -58.64;   // Longitud exacta
-const DELIVERY_RADIUS_KM = 3.0;  // radio 3 km
-const DELIVERY_FEE_ARS   = 0;    // sin costo de envío
-const SHEETS_ENDPOINT = "TU_URL_APPS_SCRIPT"; // lo completás en el paso 4
-const ENABLE_GEO = true;         // deja el botón "Usar mi ubicación" activado
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pedidos – Marbea Pizzería</title>
+  <meta name="theme-color" content="#B52727">
+  <style>
+    :root{
+      --cream:#FFECBF;      /* Fondo/acento */
+      --red:#B52727;        /* Primario Marbea */
+      --black:#000000;      /* Texto/énfasis */
+      --ink:#1c1c1c;        /* Texto principal */
+      --line:#e8d9a6;       /* Bordes suaves derivados del cream */
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--cream)}
+    header{background:var(--red);color:#fff}
+    .wrap{max-width:980px;margin:0 auto;padding:14px 16px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .brand img{height:44px;width:auto;display:block}
+    .brand h1{font-size:1.25rem;line-height:1.2;margin:0}
+    .tag{opacity:.9;font-size:.92rem}
+    main{max-width:980px;margin:20px auto;padding:0 16px}
+
+    .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0;box-shadow:0 2px 0 rgba(0,0,0,.03)}
+    h2{margin:0 0 10px;color:var(--black)}
+    .grid{display:grid;gap:12px}
+    @media(min-width:760px){.grid{grid-template-columns:repeat(2,1fr)}}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    label{font-weight:600}
+    input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+    .qty{width:80px;text-align:right}
+    .price{opacity:.8;font-size:.95rem}
+    .muted{opacity:.7}
+    .totals{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+    .pill{background:#fff3cc;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:700}
+    .btn{cursor:pointer;border:0;border-radius:12px;padding:12px 16px;font-weight:800}
+    .btn-primary{background:var(--red);color:#fff}
+    .btn-secondary{background:#fff;border:2px solid var(--red);color:var(--red)}
+    .footer-note{font-size:.9rem;margin-top:6px}
+    .item{border:1px dashed var(--line);border-radius:12px;padding:12px;background:#fff}
+    .item .row{justify-content:space-between}
+    .note-input{margin-top:8px}
+    .item img{width:100%;border-radius:10px;margin:8px 0;display:block}
+    input:focus,select:focus,textarea:focus,.btn:focus{outline:3px solid #00000022}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap brand">
+      <!-- Reemplaza el src por tu archivo/logo -->
+      <img src="img/logo-marbea.png" alt="Marbea Pizzería" />
+      <div>
+        <h1>Marbea Pizzería – Pedidos Online</h1>
+        <div class="tag">Villa Tesei · Retiro en local o Delivery (3 km)</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- Menú generado desde catalog.js -->
+    <section class="card">
+      <h2>Elegí tus pizzas</h2>
+      <div class="grid" id="menu"></div>
+      <div class="totals">
+        <span>Total estimado</span>
+        <span id="total" class="pill">$0</span>
+      </div>
+    </section>
+
+    <!-- Datos del cliente -->
+    <section class="card">
+      <h2>Datos y entrega</h2>
+      <div class="grid">
+        <div>
+          <label>Nombre y apellido</label>
+          <input id="nombre" type="text" placeholder="Ej.: Juan Pérez" required />
+        </div>
+        <div>
+          <label>Teléfono</label>
+          <input id="telefono" type="tel" placeholder="Ej.: 11 5555-5555" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:8px"><label>¿Cómo lo recibís?</label></div>
+      <div class="row">
+        <label><input type="radio" name="tipo" value="Retiro en local" checked /> Retiro en local</label>
+        <label><input type="radio" name="tipo" value="Delivery" /> Delivery</label>
+      </div>
+
+      <div id="bloque-delivery" class="card" style="display:none;margin-top:10px;background:#fff8df">
+        <div class="grid">
+          <div>
+            <label>Dirección</label>
+            <input id="direccion" type="text" placeholder="Calle y altura" />
+          </div>
+          <div>
+            <label>Localidad</label>
+            <input id="localidad" type="text" placeholder="Hurlingham / Villa Tesei" />
+          </div>
+        </div>
+        <div class="grid" style="margin-top:8px">
+          <div>
+            <label>Entre calles (opcional)</label>
+            <input id="entre" type="text" placeholder="Entre A y B" />
+          </div>
+          <div>
+            <label>Piso/Depto (opcional)</label>
+            <input id="piso" type="text" placeholder="Piso 3, Dpto B" />
+          </div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:8px">
+        <div>
+          <label>Forma de pago</label>
+          <select id="pago">
+            <option>Efectivo</option>
+            <option>Débito/Crédito</option>
+            <option>Transferencia</option>
+            <option>Mercado Pago</option>
+          </select>
+        </div>
+        <div>
+          <label>¿Para cuándo?</label>
+          <select id="cuando">
+            <option>Lo antes posible</option>
+            <option>Hoy en 30 min</option>
+            <option>Hoy en 1 hora</option>
+            <option>Programar (aclarar en notas)</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top:8px">
+        <label>Notas generales (opcional)</label>
+        <textarea id="notas" rows="3" placeholder="Aclaraciones, timbre roto, cambio de $10.000, etc."></textarea>
+      </div>
+    </section>
+
+    <!-- Acciones -->
+    <section class="card">
+      <div class="row" style="justify-content:space-between">
+        <button class="btn btn-secondary" id="limpiar">Limpiar</button>
+        <button class="btn btn-primary" id="enviar">Confirmar por WhatsApp</button>
+      </div>
+      <div class="footer-note muted">Al confirmar se abrirá WhatsApp con el pedido listo para enviar.</div>
+    </section>
+  </main>
+
+  <!-- 1) Catálogo (editar en catalog.js) -->
+  <script src="catalog.js"></script>
+
+  <!-- 2) Lógica de la página: render, totales y WhatsApp -->
+  <script>
+    // CONFIG: poné tu número de WhatsApp en formato internacional (ej.: 54911XXXXXXXX)
+    const WHATSAPP_NUMERO = "TU_NUMERO_CON_CODIGO";
+
+    // Render de productos desde CATALOGO (definido en catalog.js)
+    const menuDiv = document.getElementById("menu");
+    function renderMenu(){
+      menuDiv.innerHTML = (window.CATALOGO||[]).map(p => `
+        <div class="item">
+          <div class="row">
+            <div>
+              <div><strong>${p.nombre}</strong></div>
+              <div class="price">${Number(p.precio).toLocaleString("es-AR",{style:"currency",currency:"ARS"})}</div>
+            </div>
+            <input class="qty" type="number" min="0" value="0"
+                   data-name="${p.nombre}" data-price="${p.precio}" />
+          </div>
+          ${p.img ? `<img src="${p.img}" alt="${p.nombre}">` : ""}
+          <div class="note-input">
+            <label>Notas</label>
+            <input type="text" placeholder="${p.notasPH||'Aclaración…'}"
+                   data-notes-for="${p.nombre}"/>
+          </div>
+        </div>
+      `).join("");
+      // listeners de total
+      document.querySelectorAll(".qty").forEach(i=>i.addEventListener("input", actualizarTotal));
+      actualizarTotal();
+    }
+
+    // Total
+    const totalSpan = document.getElementById("total");
+    function actualizarTotal(){
+      let total = 0;
+      document.querySelectorAll(".qty").forEach(inp=>{
+        const q = parseInt(inp.value||"0",10);
+        const p = parseInt(inp.dataset.price,10);
+        total += q*p;
+      });
+      totalSpan.textContent = total.toLocaleString("es-AR",{style:"currency",currency:"ARS"});
+    }
+
+    // Mostrar/ocultar delivery
+    const bloqueDelivery = document.getElementById("bloque-delivery");
+    document.querySelectorAll('input[name="tipo"]').forEach(r=>{
+      r.addEventListener("change", ()=>{
+        const isDelivery = document.querySelector('input[name="tipo"]:checked').value === "Delivery";
+        bloqueDelivery.style.display = isDelivery ? "block" : "none";
+      });
+    });
+
+    // Armar mensaje
+    function armarMensaje(){
+      const items=[];
+      document.querySelectorAll(".qty").forEach(inp=>{
+        const q = parseInt(inp.value||"0",10);
+        if(q>0){
+          const name=inp.dataset.name;
+          const price=parseInt(inp.dataset.price,10);
+          const notas=document.querySelector(`[data-notes-for="${name}"]`)?.value?.trim();
+          items.push(`• ${name} x${q}${notas?` (${notas})`:""} — $${(price*q).toLocaleString("es-AR")}`);
+        }
+      });
+
+      const nombre = document.getElementById("nombre").value.trim();
+      const telefono = document.getElementById("telefono").value.trim();
+      const tipo = document.querySelector('input[name="tipo"]:checked').value;
+      const pago = document.getElementById("pago").value;
+      const cuando = document.getElementById("cuando").value;
+      const notas = document.getElementById("notas").value.trim();
+
+      let totalNum = 0;
+      document.querySelectorAll(".qty").forEach(inp=>{
+        totalNum += (parseInt(inp.value||"0",10) * parseInt(inp.dataset.price,10));
+      });
+
+      const datosEntrega = (tipo==="Delivery")
+        ? `\n📍 Dirección: ${document.getElementById("direccion").value.trim()}\n🏘️ Localidad: ${document.getElementById("localidad").value.trim()}\n↔️ Entre: ${document.getElementById("entre").value.trim()}\n🏢 Piso/Dto: ${document.getElementById("piso").value.trim()}`
+        : `\n🏁 Retiro en local`;
+
+      const cabecera = `🍕 *Nuevo pedido – Marbea Pizzería*\n`;
+      const cuerpo = `${items.length?items.join("\n"):"(sin ítems)"}\n\nTotal estimado: *$${totalNum.toLocaleString("es-AR")}*`;
+      const cliente = `\n\n👤 Nombre: ${nombre}\n📱 Tel: ${telefono}`;
+      const entrega = `${datosEntrega}\n🕑 Cuando: ${cuando}\n💳 Pago: ${pago}`;
+      const notasFinal = notas?`\n📝 Notas: ${notas}`:"";
+
+      return cabecera + "\n" + cuerpo + cliente + entrega + notasFinal;
+    }
+
+    // Enviar
+    document.getElementById("enviar").addEventListener("click", ()=>{
+      const mensaje = encodeURIComponent(armarMensaje());
+      const url = `https://wa.me/${WHATSAPP_NUMERO}?text=${mensaje}`;
+      window.open(url, "_blank");
+    });
+
+    // Limpiar
+    document.getElementById("limpiar").addEventListener("click", ()=>{
+      document.querySelectorAll(".qty").forEach(i=>i.value=0);
+      document.querySelectorAll('input[type="text"], input[type="tel"], textarea').forEach(i=>i.value="");
+      document.querySelector('input[name="tipo"][value="Retiro en local"]').checked = true;
+      document.getElementById("pago").selectedIndex = 0;
+      document.getElementById("cuando").selectedIndex = 0;
+      document.getElementById("bloque-delivery").style.display="none";
+      actualizarTotal();
+    });
+
+    // Inicializar: renderiza menú al cargar
+    renderMenu();
+  </script>
+</body>
+</html>
